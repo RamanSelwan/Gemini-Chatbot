@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -15,7 +14,12 @@ interface OtpFormProps {
   onBack: () => void;
 }
 
-export function OtpForm({ phone, countryCode, onVerify, onBack }: OtpFormProps) {
+export function OtpForm({
+  phone,
+  countryCode,
+  onVerify,
+  onBack,
+}: OtpFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [resendTimer, setResendTimer] = useState(30);
@@ -23,30 +27,33 @@ export function OtpForm({ phone, countryCode, onVerify, onBack }: OtpFormProps) 
 
   const {
     handleSubmit,
-    formState: { errors },
     setValue,
+    register,
+    formState: { errors },
   } = useForm<OtpFormData>({
     resolver: zodResolver(otpSchema),
   });
 
+  // Countdown timer logic
   useEffect(() => {
-    const timer = resendTimer > 0 ? setInterval(() => {
-      setResendTimer(prev => prev - 1);
-    }, 1000) : null;
+    if (resendTimer === 0) return;
 
-    return () => {
-      if (timer) clearInterval(timer);
-    };
+    const interval = setInterval(() => {
+      setResendTimer((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, [resendTimer]);
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) return;
-    
+
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-    setValue('otp', newOtp.join(''));
 
+    const combinedOtp = newOtp.join('');
+    setValue('otp', combinedOtp);
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -58,17 +65,16 @@ export function OtpForm({ phone, countryCode, onVerify, onBack }: OtpFormProps) 
     }
   };
 
-  const onSubmit = async () => {
-    const otpValue = otp.join('');
-    if (otpValue.length !== 6) {
+  const onSubmit = async (data: OtpFormData) => {
+    if (data.otp.length !== 6) {
       toast.error('Please enter complete OTP');
       return;
     }
 
     setIsLoading(true);
-    
+
     setTimeout(() => {
-      if (otpValue === '123456') {
+      if (data.otp === '123456') {
         toast.success('Phone verified successfully!');
         onVerify();
       } else {
@@ -81,6 +87,8 @@ export function OtpForm({ phone, countryCode, onVerify, onBack }: OtpFormProps) 
   const handleResend = () => {
     setResendTimer(30);
     toast.success('OTP sent again!');
+    setOtp(['', '', '', '', '', '']);
+    inputRefs.current[0]?.focus();
   };
 
   return (
@@ -92,7 +100,7 @@ export function OtpForm({ phone, countryCode, onVerify, onBack }: OtpFormProps) 
         >
           <i className="ri-arrow-left-line text-xl"></i>
         </button>
-        
+
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
           Verify Phone
         </h1>
@@ -116,13 +124,13 @@ export function OtpForm({ phone, countryCode, onVerify, onBack }: OtpFormProps) 
             {otp.map((digit, index) => (
               <input
                 key={index}
-                ref={el => inputRefs.current[index] = el}
+                ref={(el) => (inputRefs.current[index] = el)}
                 type="text"
                 inputMode="numeric"
                 maxLength={1}
                 value={digit}
-                onChange={e => handleOtpChange(index, e.target.value)}
-                onKeyDown={e => handleKeyDown(index, e)}
+                onChange={(e) => handleOtpChange(index, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(index, e)}
                 className="w-12 h-12 text-center text-lg font-semibold border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             ))}
@@ -133,6 +141,9 @@ export function OtpForm({ phone, countryCode, onVerify, onBack }: OtpFormProps) 
             </p>
           )}
         </div>
+
+        {/* hidden input for react-hook-form to track the OTP value */}
+        <input type="hidden" {...register('otp')} />
 
         <Button
           type="submit"
